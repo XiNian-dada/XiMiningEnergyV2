@@ -1,0 +1,73 @@
+mysql:
+  host: 192.168.1.197
+  port: 3726
+  database: testdb
+  username: testdb
+  password: test
+
+default-max-energy: 100.0
+default-regen-rate: 1.0
+max-energy-limit: 5000  # 最大体力上限
+regen-rate-limit: 500   # 恢复速率上限
+
+apply-energy-consumption-to-all-blocks: false
+energy-consumption:
+  STONE: 2.0
+  IRON_ORE: 3.0
+  GOLD_ORE: 4.0
+  DIAMOND_ORE: 5.0
+itemsadder:
+  enabled: true  # 开关，是否启用 ItemsAdder 支持
+  energy-consumption:
+    "custom_ores:zipstone9": 10
+    "test:test1": 7
+potion:
+  potion_1:
+    name: "&a初级恢复药水"
+    type: percent
+    amount: 10
+    custom-model-data: 1114
+  potion_2:
+    name: "&b高级恢复药水"
+    type: amount
+    amount: 500
+    custom-model-data: 1115
+bossbar:
+  enabled: true
+  title: "&a当前能量: {current_energy} / {max_energy}"
+  color: "GREEN"
+  style: "SOLID"
+  display-mode: "temporary"  # 可以是 "permanent" 或 "temporary"
+  display-time: 10  # 仅在 display-mode 为 "temporary" 时生效，单位为秒
+
+upgrade-menu:
+  title: "&a升级体力和恢复速率"
+  size: 9
+  items:
+    max-energy:
+      type: "max-energy"
+      slot: 3
+      material: DIAMOND_SWORD
+      name: "&b升级最大体力"
+      custom-model-data: 1234
+      lore:
+        - "&7当前最大体力: &e{max_energy}"
+        - "&7升级所需金币: &e{upgrade_cost}"
+    regen-rate:
+      type: "regen-rate"
+      slot: 5
+      material: GOLDEN_APPLE
+      name: "&d升级恢复速率"
+      custom-model-data: 5678
+      lore:
+        - "&7当前恢复速率: &e{regen_rate}"
+        - "&7升级所需金币: &e{upgrade_cost}"
+    decoration1:
+      slot: 0
+      material: STONE
+      name: "&8装饰性物品1"
+    decoration2:
+      slot: 8
+      material: STONE
+      name: "&8装饰性物品2"
+

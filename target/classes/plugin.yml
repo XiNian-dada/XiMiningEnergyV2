@@ -1,0 +1,39 @@
+name: XiMiningEnergy
+version: '2.0'
+main: cn.hairuosky.ximiningenergy.XiMiningEnergy
+api-version: '1.16'
+author: 'XiNian_dada'
+commands:
+  miningenergy:
+    description: 用于管理矿工体力的指令
+    usage: /<command>
+softdepend: [ItemsAdder]
+depend: [Vault,PlaceholderAPI]
+permissions:
+  ximiningenergy.command.check:
+    description: "允许使用 /miningenergy check"
+    default: op
+  ximiningenergy.command.update:
+    description: "允许使用 /miningenergy update"
+    default: op
+  ximiningenergy.command.addmax:
+    description: "允许使用 /miningenergy addmax"
+    default: op
+  ximiningenergy.command.addregen:
+    description: "允许使用 /miningenergy addregen"
+    default: op
+  ximiningenergy.command.setmax:
+    description: "允许使用 /miningenergy setmax"
+    default: op
+  ximiningenergy.command.setregen:
+    description: "允许使用 /miningenergy setregen"
+    default: op
+  ximiningenergy.command.reload:
+    description: "允许使用 /miningenergy reload"
+    default: op
+  ximiningenergy.command.info:
+    description: "允许使用 /miningenergy info"
+    default: op
+  ximiningenergy.command.help:
+    description: "允许使用 /miningenergy help"
+    default: op
