@@ -70,7 +70,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             } else {
                 getLogger().info("全方块已关闭 只操作已配置方块");
             }
-            potionHandler = new Potion(this);
+            potionHandler = new Potion(bossBarManager, this);
             getLogger().info("配置文件加载完成。");
             itemsAdderEnabled = getConfig().getBoolean("itemsadder.enabled", false);
 
@@ -127,7 +127,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             // 注册事件
             getServer().getPluginManager().registerEvents(this, this);
             getServer().getPluginManager().registerEvents(new MiningEnergyCommandExecutor(this), this);
-            getServer().getPluginManager().registerEvents(new Potion(this), this);
+            getServer().getPluginManager().registerEvents(new Potion(bossBarManager, this), this);
             // 初始化 BossBar 管理器
             bossBarManager = new BossBarManager(getConfig(), this);
             getLogger().info("事件监听器注册完成。");

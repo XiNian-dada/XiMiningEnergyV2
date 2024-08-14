@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public class Potion implements Listener {
-
+    private BossBarManager bossBarManager;
     public class PotionData {
         private final String id;
         private final String name;
@@ -56,7 +56,8 @@ public class Potion implements Listener {
     private final Map<String, PotionData> potions = new HashMap<>();
     private final Map<UUID, PlayerEnergyData> playerDataCache;
 
-    public Potion(Plugin plugin) {
+    public Potion(BossBarManager bossBarManager, Plugin plugin) {
+        this.bossBarManager = bossBarManager;
         this.plugin = plugin;
         this.playerDataCache = ((XiMiningEnergy) plugin).getPlayerDataCache();
         if (this.playerDataCache == null) {
@@ -149,6 +150,9 @@ public class Potion implements Listener {
 
         // 获取玩家实例并发送提示消息
         Player player = Bukkit.getPlayer(playerData.getGameId());
+        if (bossBarManager != null) {
+            bossBarManager.updateBossBar(player, amount, playerData.getMaxEnergy());
+        }
         if (player != null && player.isOnline()) {
             player.sendMessage("你恢复了 " + recoveredAmount + " 点能量。");
         }
