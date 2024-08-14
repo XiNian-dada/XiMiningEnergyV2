@@ -34,6 +34,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     private boolean applyToAllBlocks;
     private BossBarManager bossBarManager;
     boolean itemsAdderEnabled;
+    boolean debugModeSwitch = true;
     private Map<String, Double> itemsAdderEnergyConsumption;
     private class EnergyRegenTask extends BukkitRunnable {
         @Override
@@ -50,7 +51,8 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
                         data.setCurrentEnergy(newEnergy);
 
                         // 输出日志以确认恢复过程
-                        getLogger().info("玩家 " + getServer().getPlayer(uuid).getName() + " 的体力恢复至: " + newEnergy);
+                        debugModePrint("info","玩家 " + Objects.requireNonNull(getServer().getPlayer(uuid)).getName() + " 的体力恢复至: " + newEnergy);
+                        //getLogger().info("玩家 " + getServer().getPlayer(uuid).getName() + " 的体力恢复至: " + newEnergy);
                         // 更新 BossBar 显示
                         onPlayerEnergyUpdate(Objects.requireNonNull(getServer().getPlayer(uuid)).getPlayer(), data.getCurrentEnergy(), data.getMaxEnergy());
                     }
@@ -66,9 +68,9 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             saveDefaultConfig();
             applyToAllBlocks = getConfig().getBoolean("apply-energy-consumption-to-all-blocks", false);
             if (applyToAllBlocks) {
-                getLogger().info("全方块适应已开启");
+                getLogger().info("全方块减体力 已启用");
             } else {
-                getLogger().info("全方块已关闭 只操作已配置方块");
+                getLogger().info("全方块减体力 已关闭");
             }
             potionHandler = new Potion(bossBarManager, this);
             getLogger().info("配置文件加载完成。");
@@ -81,6 +83,8 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
                 return;
             } else {
                 getLogger().info("PlaceholderAPI 插件已找到！");
+                new XiMiningEnergyPlaceholder(this).register();
+                getLogger().info("PlaceholderAPI 成功注册！");
             }
 
             // 检查 Vault 插件是否存在
@@ -190,16 +194,20 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
                 getLogger().info("玩家 " + player.getName() + " 的数据从数据库加载:");
             }
 
-            getLogger().info("玩家UUID: " + playerUUID.toString());
-            getLogger().info("当前体力: " + data.getCurrentEnergy());
-            getLogger().info("最大体力: " + data.getMaxEnergy());
-            getLogger().info("恢复速率: " + data.getRegenRate());
-            getLogger().info("最后一次下线时间戳: " + data.getLastOnlineTimestamp());
-            getLogger().info("游戏ID: " + data.getGameId());
+            printPlayerDataFromDatabase(playerUUID, data);
 
             playerDataCache.put(playerUUID, data);
             player.sendMessage("玩家数据已加载或创建。");
         }
+    }
+
+    private void printPlayerDataFromDatabase(UUID playerUUID, PlayerEnergyData data) {
+        getLogger().info("玩家UUID: " + playerUUID.toString());
+        getLogger().info("当前体力: " + data.getCurrentEnergy());
+        getLogger().info("最大体力: " + data.getMaxEnergy());
+        getLogger().info("恢复速率: " + data.getRegenRate());
+        getLogger().info("最后一次下线时间戳: " + data.getLastOnlineTimestamp());
+        getLogger().info("游戏ID: " + data.getGameId());
     }
 
     @EventHandler
@@ -285,12 +293,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             // 输出所有要保存的值
             getLogger().info("玩家数据将被保存到数据库:");
             getLogger().info("玩家名称: " + player.getName());
-            getLogger().info("玩家UUID: " + playerUUID.toString());
-            getLogger().info("当前体力: " + data.getCurrentEnergy());
-            getLogger().info("最大体力: " + data.getMaxEnergy());
-            getLogger().info("恢复速率: " + data.getRegenRate());
-            getLogger().info("最后一次下线时间戳: " + data.getLastOnlineTimestamp());
-            getLogger().info("游戏ID: " + data.getGameId());
+            printPlayerDataFromDatabase(playerUUID, data);
 
             // 保存玩家数据到数据库
             savePlayerDataToDatabase(playerUUID);
@@ -375,9 +378,6 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
         return economy != null;
     }
 
-    public Economy getEconomy() {
-        return economy;
-    }
     public void startCooldownCleanupTask() {
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             long currentTime = System.currentTimeMillis();
@@ -542,6 +542,18 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
         if (data != null) {
             data.setLastOnlineTimestamp(timestamp);
             // 可能需要保存到数据库或其他地方
+        }
+    }
+    public void debugModePrint(String importance, String text){
+        String debugPrefix = "[DEBUG-XME]";
+        if(debugModeSwitch) {
+            if (importance.equalsIgnoreCase("info")) {
+                getLogger().info(debugPrefix + text);
+            } else if (importance.equalsIgnoreCase("warning")) {
+                getLogger().warning(debugPrefix + text);
+            } else if (importance.equalsIgnoreCase("severe")) {
+                getLogger().severe(debugPrefix + text);
+            }
         }
     }
 }

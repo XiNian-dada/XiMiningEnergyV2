@@ -64,7 +64,8 @@ public class MiningEnergyTabCompleter implements TabCompleter {
         } else if (args.length == 2) {
             // 补全第二个参数
             if (args[0].equalsIgnoreCase("addmax") || args[0].equalsIgnoreCase("addregen") ||
-                    args[0].equalsIgnoreCase("setmax") || args[0].equalsIgnoreCase("setregen")) {
+                    args[0].equalsIgnoreCase("setmax") || args[0].equalsIgnoreCase("setregen" )
+                    || args[0].equalsIgnoreCase("givepotion")) {
                 // 提供玩家名称的补全
                 List<String> playerNames = new ArrayList<>();
                 for (Player onlinePlayer : player.getServer().getOnlinePlayers()) {
