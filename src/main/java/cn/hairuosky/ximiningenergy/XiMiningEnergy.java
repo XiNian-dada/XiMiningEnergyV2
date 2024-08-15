@@ -3,9 +3,12 @@ package cn.hairuosky.ximiningenergy;
 import dev.lone.itemsadder.api.CustomBlock;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -19,6 +22,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import cn.hairuosky.ximiningenergy.api.XiEnergyAPI;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -26,21 +30,30 @@ import java.util.UUID;
 
 public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     Economy economy;
+    private String prefix;
     public Potion potionHandler;
     private final Map<UUID, Long> cooldownMap = new HashMap<>();
     final long cooldownTime = 5000; // 冷却时间，单位：毫秒
     DatabaseManager databaseManager;
     HashMap<UUID, PlayerEnergyData> playerDataCache;
     private boolean applyToAllBlocks;
-    private BossBarManager bossBarManager;
+    BossBarManager bossBarManager;
     boolean itemsAdderEnabled;
     boolean debugModeSwitch = true;
-    private Map<String, Double> itemsAdderEnergyConsumption;
-    private class EnergyRegenTask extends BukkitRunnable {
+    private FileConfiguration langConfig;
+    private File langFile;
+    Map<String, Double> itemsAdderEnergyConsumption;
+    public static class EnergyRegenTask extends BukkitRunnable {
+        private final XiMiningEnergy plugin; // 引用外围类的实例
+
+        public EnergyRegenTask(XiMiningEnergy plugin) {
+            this.plugin = plugin;
+        }
+
         @Override
         public void run() {
-            for (UUID uuid : playerDataCache.keySet()) {
-                PlayerEnergyData data = playerDataCache.get(uuid);
+            for (UUID uuid : plugin.playerDataCache.keySet()) {
+                PlayerEnergyData data = plugin.playerDataCache.get(uuid);
                 if (data != null) {
                     double currentEnergy = data.getCurrentEnergy();
                     double maxEnergy = data.getMaxEnergy();
@@ -51,19 +64,25 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
                         data.setCurrentEnergy(newEnergy);
 
                         // 输出日志以确认恢复过程
-                        debugModePrint("info","玩家 " + Objects.requireNonNull(getServer().getPlayer(uuid)).getName() + " 的体力恢复至: " + newEnergy);
+                        plugin.debugModePrint("info","玩家 " + Objects.requireNonNull(plugin.getServer().getPlayer(uuid)).getName() + " 的体力恢复至: " + newEnergy);
                         //getLogger().info("玩家 " + getServer().getPlayer(uuid).getName() + " 的体力恢复至: " + newEnergy);
                         // 更新 BossBar 显示
-                        onPlayerEnergyUpdate(Objects.requireNonNull(getServer().getPlayer(uuid)).getPlayer(), data.getCurrentEnergy(), data.getMaxEnergy());
+                        plugin.onPlayerEnergyUpdate(Objects.requireNonNull(plugin.getServer().getPlayer(uuid)).getPlayer(), data.getCurrentEnergy(), data.getMaxEnergy());
                     }
                 }
             }
         }
     }
-    private class AutoSavePlayerData extends BukkitRunnable{
+    public static class AutoSavePlayerData extends BukkitRunnable{
+        private final XiMiningEnergy plugin;
+
+        public AutoSavePlayerData(XiMiningEnergy plugin) {
+            this.plugin = plugin;
+        }
+
         @Override
         public void run(){
-            saveAllPlayerDataToDatabase();
+            plugin.saveAllPlayerDataToDatabase();
             Bukkit.broadcastMessage("玩家数据已自动存储");
         }
     }
@@ -73,6 +92,8 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
         try {
             // 加载配置文件
             saveDefaultConfig();
+            // 初始化语言文件
+            initializeLangFile();
             applyToAllBlocks = getConfig().getBoolean("apply-energy-consumption-to-all-blocks", false);
             if (applyToAllBlocks) {
                 getLogger().info("全方块减体力 已启用");
@@ -152,10 +173,10 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             }
             Objects.requireNonNull(this.getCommand("miningenergy")).setExecutor(new MiningEnergyCommandExecutor(this));
             getLogger().info("指令执行器注册完成。");
-            new EnergyRegenTask().runTaskTimer(this, 0L, 1200L);
+            new EnergyRegenTask(this).runTaskTimer(this, 0L, 1200L);
             startCooldownCleanupTask();
             if (getConfig().getBoolean("auto-save")){
-                new AutoSavePlayerData().runTaskTimer(this,0L,getConfig().getInt("auto-save-delay",600)*20L);
+                new AutoSavePlayerData(this).runTaskTimer(this,0L,getConfig().getInt("auto-save-delay",600)*20L);
             }
             getLogger().info("XiMiningEnergy 插件已启用！");
         } catch (Exception e) {
@@ -356,7 +377,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     }
 
 
-    private void printEnergyConsumptionConfig() {
+    void printEnergyConsumptionConfig() {
         getLogger().info("原版方块能量消耗配置：");
         ConfigurationSection section = getConfig().getConfigurationSection("energy-consumption");
         if (section != null) {
@@ -401,7 +422,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     }
     public HashMap<UUID, PlayerEnergyData> getPlayerDataCache() {
         if (playerDataCache == null) {
-            getLogger().severe("Player data cache is null! Initialization might have failed.");
+            getLogger().severe("Player data cache is null! Initialization might have failed.Or there's no player join the game,if so,ignore this message");
 
         }else {
             return playerDataCache;
@@ -568,4 +589,41 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             }
         }
     }
+
+    void initializeLangFile() {
+        // 确保插件目录下的 languages 文件夹存在
+        File languagesDir = new File(getDataFolder(), "languages");
+        if (!languagesDir.exists()) {
+            languagesDir.mkdirs(); // 创建文件夹
+        }
+
+        // 获取语言配置
+        String language = getConfig().getString("language", "en"); // 默认语言为英文
+        langFile = new File(languagesDir, language + ".yml");
+
+        // 如果指定的语言文件不存在，则回退到默认的语言文件（例如：en.yml）
+        if (!langFile.exists()) {
+            saveResource("languages/" + language + ".yml", false);
+        }
+
+        // 加载语言文件配置
+        langConfig = YamlConfiguration.loadConfiguration(langFile);
+
+
+        // 加载前缀
+        prefix = ChatColor.translateAlternateColorCodes('&', getConfig().getString("prefix", ""));
+    }
+
+    public String getMessage(String key) {
+        // 获取消息并添加前缀
+        String message = langConfig.getString(key, key);
+        return ChatColor.translateAlternateColorCodes('&', prefix + message);
+    }
+
+    public String getRawMessage(String key) {
+        // 获取消息（无前缀）
+        String message = langConfig.getString(key, key);
+        return ChatColor.translateAlternateColorCodes('&', message);
+    }
+
 }

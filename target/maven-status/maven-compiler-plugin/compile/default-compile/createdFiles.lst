@@ -9,6 +9,5 @@ cn\hairuosky\ximiningenergy\XiMiningEnergy$AutoSavePlayerData.class
 cn\hairuosky\ximiningenergy\PlayerEnergyData.class
 cn\hairuosky\ximiningenergy\BossBarManager.class
 cn\hairuosky\ximiningenergy\MiningEnergyCommandExecutor.class
-cn\hairuosky\ximiningenergy\XiMiningEnergy$1.class
 cn\hairuosky\ximiningenergy\XiMiningEnergy.class
 cn\hairuosky\ximiningenergy\api\XiEnergyAPI.class

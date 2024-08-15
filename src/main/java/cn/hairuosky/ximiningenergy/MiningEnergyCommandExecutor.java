@@ -179,13 +179,66 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
 
             case "reload":
                 if (player.hasPermission("ximiningenergy.command.reload")) {
-                    plugin.reloadConfig();
-                    player.sendMessage("配置文件重新加载成功！");
+                    try {
+                        // 重新加载配置文件
+                        plugin.reloadConfig();
+
+                        // 重新初始化语言文件
+                        plugin.initializeLangFile();
+
+                        // 重新加载 ItemsAdder 配置（如果启用）
+                        boolean itemsAdderEnabled = plugin.getConfig().getBoolean("itemsadder.enabled", false);
+                        if (itemsAdderEnabled) {
+                            if (plugin.getServer().getPluginManager().getPlugin("ItemsAdder") == null) {
+                                plugin.getLogger().severe("ItemsAdder 支持已启用，但未检测到 ItemsAdder 插件！");
+                            } else {
+                                // 读取 ItemsAdder 自定义方块配置
+                                plugin.itemsAdderEnergyConsumption = new HashMap<>();
+                                ConfigurationSection itemsAdderSection = plugin.getConfig().getConfigurationSection("itemsadder.energy-consumption");
+                                if (itemsAdderSection != null) {
+                                    for (String key : itemsAdderSection.getKeys(false)) {
+                                        double consumption = itemsAdderSection.getDouble(key);
+                                        plugin.itemsAdderEnergyConsumption.put(key, consumption);
+                                    }
+                                }
+                            }
+                        } else {
+                            plugin.itemsAdderEnergyConsumption = new HashMap<>();
+                        }
+                        // 移除所有现有 BossBar
+                        for (Player playerInServer : plugin.getServer().getOnlinePlayers()) {
+                            plugin.bossBarManager.removePlayerBossBar(playerInServer);
+                            // 移除所有带有特定标签的 BossBar
+                            plugin.bossBarManager.removeTaggedBossBars();
+                        }
+
+                        // 重新初始化 BossBar 管理器
+                        plugin.bossBarManager = new BossBarManager(plugin.getConfig(), plugin);
+
+                        // 重新启动 EnergyRegenTask
+                        Bukkit.getScheduler().cancelTasks(plugin);
+                        new XiMiningEnergy.EnergyRegenTask(plugin).runTaskTimer(plugin, 0L, 1200L);
+
+                        // 重新启动 AutoSavePlayerData 任务（如果启用）
+                        if (plugin.getConfig().getBoolean("auto-save")) {
+                            int autoSaveDelay = plugin.getConfig().getInt("auto-save-delay", 600) * 20;
+                            new XiMiningEnergy.AutoSavePlayerData(plugin).runTaskTimer(plugin, 0L, autoSaveDelay);
+                        }
+                        Potion potionHandler = plugin.getPotionHandler();
+                        potionHandler.reloadPotions(plugin.getConfig());
+
+                        //player.sendMessage(plugin.getMessage("config-reloaded")); // 使用带前缀的消息
+                    } catch (Exception e) {
+                        //player.sendMessage(plugin.getMessage("reload-failed")); // 使用带前缀的消息
+                        plugin.getLogger().severe("插件重载过程中发生错误！");
+                        e.printStackTrace();
+                    }
                     return true;
                 } else {
-                    player.sendMessage("你没有权限执行此命令！");
+                    //player.sendMessage(plugin.getMessage("no-permission")); // 使用带前缀的消息
                     return true;
                 }
+
 
             case "info":
                 if (player.hasPermission("ximiningenergy.command.info")) {

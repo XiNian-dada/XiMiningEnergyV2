@@ -66,9 +66,9 @@ public class Potion implements Listener {
         this.bossBarManager = bossBarManager;
         this.plugin = plugin;
         this.playerDataCache = ((XiMiningEnergy) plugin).getPlayerDataCache();
-        if (this.playerDataCache == null) {
+        /*if (this.playerDataCache == null) {
             plugin.getLogger().warning("Player data cache is null. Ensure it's properly initialized in XiMiningEnergy.");
-        }
+        }*/
         loadPotions(plugin.getConfig());
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
@@ -214,5 +214,9 @@ public class Potion implements Listener {
                 player.sendMessage("你恢复了 " + recoveredAmount + " 点能量。");
             }
         }
+    }
+    public void reloadPotions(FileConfiguration config) {
+        potions.clear(); // 清除旧的药水数据
+        loadPotions(config); // 重新加载药水数据
     }
 }

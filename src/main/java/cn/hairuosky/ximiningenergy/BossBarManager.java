@@ -11,16 +11,19 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class BossBarManager {
     private final FileConfiguration config;
-    private final Map<Player, BossBar> playerBossBars = new HashMap<>();
+    private final Map<UUID, BossBar> bossBarMap = new HashMap<>();
+    private final Map<Player, UUID> playerBossBarMap = new HashMap<>();
     private final String titleTemplate;
     private final BarColor color;
     private final BarStyle style;
     private final boolean isPermanent;
     private final int displayTime;
     private final Plugin plugin;
+    private final String tag;
 
     public BossBarManager(FileConfiguration config, Plugin plugin) {
         this.config = config;
@@ -30,6 +33,11 @@ public class BossBarManager {
         this.isPermanent = config.getString("bossbar.display-mode", "temporary").equalsIgnoreCase("permanent");
         this.displayTime = config.getInt("bossbar.display-time", 10);
         this.plugin = plugin;
+        this.tag = "XiMiningEnergy"; // 自定义标签
+        // 清除已存在的 BossBar
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            removePlayerBossBar(player);
+        }
     }
 
     public void updateBossBar(Player player, double currentEnergy, double maxEnergy) {
@@ -37,18 +45,19 @@ public class BossBarManager {
             return;
         }
 
-        // 输出当前的 BossBar 状态
         plugin.getLogger().info("更新 BossBar: 玩家 = " + player.getName() + ", 当前能量 = " + currentEnergy + ", 最大能量 = " + maxEnergy);
 
-        BossBar existingBossBar = playerBossBars.get(player);
-        if (existingBossBar != null) {
-            // 输出移除旧 BossBar 的信息
+        UUID existingBossBarId = playerBossBarMap.get(player);
+        if (existingBossBarId != null) {
             plugin.getLogger().info("移除旧 BossBar: 玩家 = " + player.getName());
 
-            // Remove the old BossBar before creating a new one
-            existingBossBar.removePlayer(player);
-            // Remove the old BossBar from the map
-            playerBossBars.remove(player);
+            // 移除旧 BossBar
+            BossBar existingBossBar = bossBarMap.get(existingBossBarId);
+            if (existingBossBar != null) {
+                existingBossBar.removePlayer(player);
+            }
+            bossBarMap.remove(existingBossBarId);
+            playerBossBarMap.remove(player);
         }
 
         BossBar newBossBar = Bukkit.createBossBar(
@@ -59,39 +68,64 @@ public class BossBarManager {
         newBossBar.setProgress(currentEnergy / maxEnergy);
         newBossBar.addPlayer(player);
 
-        // 输出新 BossBar 创建的信息
+        // 生成新的 UUID 作为 BossBar 的标识
+        UUID newBossBarId = UUID.randomUUID();
+        bossBarMap.put(newBossBarId, newBossBar);
+        playerBossBarMap.put(player, newBossBarId);
+
         plugin.getLogger().info("创建新 BossBar: 玩家 = " + player.getName() + ", 标题 = " + formatTitle(currentEnergy, maxEnergy) + ", 进度 = " + (currentEnergy / maxEnergy));
 
-        playerBossBars.put(player, newBossBar);
-
         if (!isPermanent) {
-            final BossBar finalBossBar = newBossBar; // Create a final copy for use inside the anonymous class
+            final BossBar finalBossBar = newBossBar; // 创建一个 final 副本以供匿名类使用
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    // 输出 BossBar 被移除的信息
                     plugin.getLogger().info("BossBar 超时移除: 玩家 = " + player.getName());
-                    if (playerBossBars.get(player) == finalBossBar) {
+                    UUID bossBarId = playerBossBarMap.get(player);
+                    if (bossBarId != null && bossBarMap.get(bossBarId) == finalBossBar) {
                         finalBossBar.removePlayer(player);
-                        playerBossBars.remove(player);
+                        bossBarMap.remove(bossBarId);
+                        playerBossBarMap.remove(player);
                     }
                 }
-            }.runTaskLater(Bukkit.getPluginManager().getPlugin("XiMiningEnergy"), displayTime * 20L);
+            }.runTaskLater(plugin, displayTime * 20L);
         }
     }
-
-
-
 
     private String formatTitle(double currentEnergy, double maxEnergy) {
         return titleTemplate
                 .replace("{current_energy}", String.valueOf(currentEnergy))
                 .replace("{max_energy}", String.valueOf(maxEnergy));
     }
+
     public void removePlayerBossBar(Player player) {
-        playerBossBars.remove(player);
+        UUID bossBarId = playerBossBarMap.get(player);
+        if (bossBarId != null) {
+            BossBar existingBossBar = bossBarMap.get(bossBarId);
+            if (existingBossBar != null) {
+                existingBossBar.removePlayer(player);
+            }
+            bossBarMap.remove(bossBarId);
+            playerBossBarMap.remove(player);
+        }
     }
+
     public BossBar getPlayerBossBar(Player player) {
-        return playerBossBars.get(player);
+        UUID bossBarId = playerBossBarMap.get(player);
+        return bossBarId != null ? bossBarMap.get(bossBarId) : null;
+    }
+
+    public void removeTaggedBossBars() {
+        for (Map.Entry<UUID, BossBar> entry : bossBarMap.entrySet()) {
+            UUID bossBarId = entry.getKey();
+            BossBar bossBar = entry.getValue();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (playerBossBarMap.get(player) == bossBarId) {
+                    bossBar.removePlayer(player);
+                    playerBossBarMap.remove(player);
+                }
+            }
+        }
+        bossBarMap.clear();
     }
 }

@@ -1,3 +1,5 @@
+language: "zh_CN"  # 语言选择，例如 "en"、"zh_CN" 等
+prefix: "&7[&6XME&7]"
 mysql:
   host: 192.168.1.197
   port: 3726
