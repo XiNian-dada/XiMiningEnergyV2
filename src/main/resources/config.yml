@@ -4,6 +4,8 @@ mysql:
   database: testdb
   username: testdb
   password: test
+auto-save: true
+auto-save-delay: 600
 
 default-max-energy: 100.0
 default-regen-rate: 1.0

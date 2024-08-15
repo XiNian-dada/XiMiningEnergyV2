@@ -446,9 +446,16 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
         Map<UUID, Long> cooldownMap = plugin.getCooldownMap();
 
         // 检查冷却时间
-        if (cooldownMap.containsKey(playerId) && (currentTime - cooldownMap.get(playerId)) < plugin.cooldownTime) {
-            player.sendMessage("请稍后再试！");
-            return;
+        if (cooldownMap.containsKey(playerId)) {
+            long lastUpgradeTime = cooldownMap.get(playerId);
+            long timeSinceLastUpgrade = currentTime - lastUpgradeTime;
+
+            plugin.getLogger().info("玩家 " + player.getName() + " 的冷却时间检测中，剩余时间: " + (plugin.cooldownTime - timeSinceLastUpgrade) + " 毫秒");
+
+            if (timeSinceLastUpgrade < plugin.cooldownTime) {
+                player.sendMessage("请稍后再试！");
+                return;
+            }
         }
 
         PlayerEnergyData data = plugin.getPlayerData(playerId);
@@ -480,8 +487,10 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
 
             // 设置冷却时间
             cooldownMap.put(playerId, currentTime);
+            plugin.getLogger().info("玩家 " + player.getName() + " 的冷却时间已设置为 " + currentTime + " 毫秒");
         }
     }
+
 
     // 使用 Vault 检查玩家是否有足够的金币
     private boolean hasEnoughGold(Player player, double amount) {

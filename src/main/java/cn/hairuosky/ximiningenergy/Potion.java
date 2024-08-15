@@ -15,6 +15,11 @@ import java.util.Map;
 import java.util.UUID;
 
 public class Potion implements Listener {
+    private final Map<UUID, Long> lastConsumeTime = new HashMap<>();
+    private final Object lock = new Object();
+    private static final Object lock_2 = new Object(); // 用于同步
+    private static long lastRecoveryTime = 0; // 上次恢复的时间戳
+    private static final long RECOVERY_TIME_LIMIT = 1000; // 时间限制，单位毫秒
     private BossBarManager bossBarManager;
     public class PotionData {
         private final String id;
@@ -22,6 +27,7 @@ public class Potion implements Listener {
         private final String type;
         private final double amount;
         private final int customModelData;
+
 
         public PotionData(String id, String name, String type, double amount, int customModelData) {
             this.id = id;
@@ -98,42 +104,77 @@ public class Potion implements Listener {
         return potion;
     }
 
+
+
+
     @EventHandler
     public void onPlayerConsumePotion(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        UUID playerUUID = player.getUniqueId();
+        long currentTime = System.currentTimeMillis();
+
+        plugin.getLogger().info("onPlayerConsumePotion called: Player = " + player.getName() + ", Timestamp = " + currentTime);
+
+        synchronized (lock) {
+            // 检查玩家上次使用药水的时间，如果时间间隔小于1秒（1000毫秒），则跳过处理
+            if (lastConsumeTime.containsKey(playerUUID) && (currentTime - lastConsumeTime.get(playerUUID)) < 1000) {
+                event.setCancelled(true);
+                return;
+            }
+
+            // 记录这次的使用时间
+            lastConsumeTime.put(playerUUID, currentTime);
+        }
+
+        // 继续处理药水消耗事件
         ItemStack item = event.getItem();
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return;
 
         int customModelData = meta.getCustomModelData();
+        PotionData matchedPotionData = null;
+
+        // 寻找与当前药水匹配的 PotionData
         for (PotionData potionData : potions.values()) {
             if (potionData.getCustomModelData() == customModelData) {
-                double amount = potionData.getAmount();
-                String type = potionData.getType();
-
-                Player player = event.getPlayer();
-                // 动态获取 playerDataCache
-                Map<UUID, PlayerEnergyData> playerDataCache = ((XiMiningEnergy) plugin).getPlayerDataCache();
-                PlayerEnergyData playerData = playerDataCache.get(player.getUniqueId());
-
-                if (playerData != null) {
-                    double recoveryAmount;
-                    if (type.equalsIgnoreCase("percent")) {
-                        // 按百分比恢复体力
-                        recoveryAmount = calculateRecoveryByPercent(amount, playerData);
-                    } else if (type.equalsIgnoreCase("amount")) {
-                        // 按数量恢复体力
-                        recoveryAmount = amount;
-                    } else {
-                        plugin.getLogger().warning("Unknown potion type: " + type);
-                        return;
-                    }
-
-                    recoverPlayerStamina(playerData, recoveryAmount);
-                }
+                matchedPotionData = potionData;
                 break;
             }
         }
+
+        if (matchedPotionData != null) {
+            // 动态从插件的主类中获取 playerDataCache
+            XiMiningEnergy plugin = (XiMiningEnergy) this.plugin;
+            Map<UUID, PlayerEnergyData> playerDataCache = plugin.getPlayerDataCache();
+
+            PlayerEnergyData playerData = playerDataCache.get(playerUUID);
+
+            if (playerData != null) {
+                double recoveryAmount;
+                String type = matchedPotionData.getType();
+
+                if (type.equalsIgnoreCase("percent")) {
+                    // 按百分比恢复体力
+                    recoveryAmount = calculateRecoveryByPercent(matchedPotionData.getAmount(), playerData);
+                } else if (type.equalsIgnoreCase("amount")) {
+                    // 按数量恢复体力
+                    recoveryAmount = matchedPotionData.getAmount();
+                } else {
+                    plugin.getLogger().warning("Unknown potion type: " + type);
+                    return;
+                }
+
+                // 恢复玩家体力并更新 BossBar
+                recoverPlayerStamina(playerData, recoveryAmount);
+
+            } else {
+                plugin.getLogger().warning("Player data for " + playerUUID + " is null. Ensure player data is properly loaded.");
+            }
+        }
     }
+
+
+
 
 
     private double calculateRecoveryByPercent(double percent, PlayerEnergyData playerData) {
@@ -142,19 +183,36 @@ public class Potion implements Listener {
     }
 
     private void recoverPlayerStamina(PlayerEnergyData playerData, double amount) {
-        double currentEnergy = playerData.getCurrentEnergy();
-        double newEnergy = Math.min(currentEnergy + amount, playerData.getMaxEnergy());
-        double recoveredAmount = newEnergy - currentEnergy; // 计算实际恢复的能量
+        long currentTime = System.currentTimeMillis();
 
-        playerData.setCurrentEnergy(newEnergy);
+        synchronized (lock_2) {
+            // 检查上一次恢复的时间，如果时间间隔小于 RECOVERY_TIME_LIMIT，跳过处理
+            if (currentTime - lastRecoveryTime < RECOVERY_TIME_LIMIT) {
+                plugin.getLogger().info("Duplicate recovery skipped at " + currentTime);
+                return;
+            }
 
-        // 获取玩家实例并发送提示消息
-        Player player = Bukkit.getPlayer(playerData.getGameId());
-        if (bossBarManager != null) {
-            bossBarManager.updateBossBar(player, amount, playerData.getMaxEnergy());
-        }
-        if (player != null && player.isOnline()) {
-            player.sendMessage("你恢复了 " + recoveredAmount + " 点能量。");
+            double currentEnergy = playerData.getCurrentEnergy();
+            double newEnergy = Math.min(currentEnergy + amount, playerData.getMaxEnergy());
+            double recoveredAmount = newEnergy - currentEnergy; // 计算实际恢复的能量
+
+            playerData.setCurrentEnergy(newEnergy);
+
+            // 更新恢复时间
+            lastRecoveryTime = currentTime;
+
+            // 记录恢复数量和当前时间戳
+            plugin.getLogger().info("RecoverPlayerStamina called: Recovered " + recoveredAmount + " energy at " + currentTime);
+
+            // 获取玩家实例并发送提示消息
+            Player player = Bukkit.getPlayer(playerData.getGameId());
+            // 调用主类的 onPlayerEnergyUpdate 方法来更新 BossBar
+            XiMiningEnergy plugin = (XiMiningEnergy) this.plugin;
+            plugin.onPlayerEnergyUpdate(player, newEnergy, playerData.getMaxEnergy());
+
+            if (player != null && player.isOnline()) {
+                player.sendMessage("你恢复了 " + recoveredAmount + " 点能量。");
+            }
         }
     }
 }

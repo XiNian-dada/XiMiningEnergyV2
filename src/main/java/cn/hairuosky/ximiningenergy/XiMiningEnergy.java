@@ -60,6 +60,13 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             }
         }
     }
+    private class AutoSavePlayerData extends BukkitRunnable{
+        @Override
+        public void run(){
+            saveAllPlayerDataToDatabase();
+            Bukkit.broadcastMessage("玩家数据已自动存储");
+        }
+    }
     @Override
     public void onEnable() {
         getLogger().info("插件启动中...");
@@ -147,11 +154,16 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             getLogger().info("指令执行器注册完成。");
             new EnergyRegenTask().runTaskTimer(this, 0L, 1200L);
             startCooldownCleanupTask();
+            if (getConfig().getBoolean("auto-save")){
+                new AutoSavePlayerData().runTaskTimer(this,0L,getConfig().getInt("auto-save-delay",600)*20L);
+            }
             getLogger().info("XiMiningEnergy 插件已启用！");
         } catch (Exception e) {
             getLogger().severe("插件启用过程中发生错误！");
             e.printStackTrace();
         }
+
+
     }
 
 
