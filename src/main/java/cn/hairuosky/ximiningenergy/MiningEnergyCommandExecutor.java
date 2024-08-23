@@ -60,14 +60,6 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
                     return true;
                 }
 
-            case "update":
-                if (player.hasPermission("ximiningenergy.command.update")) {
-                    openUpgradeMenu(player);
-                    return true;
-                } else {
-                    player.sendMessage("你没有权限执行此命令！");
-                    return true;
-                }
             case "givepotion":
                 if (player.hasPermission("ximiningenergy.command.givepotion")) {
                     if (args.length > 2) {
@@ -101,16 +93,23 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
 
             case "addmax":
                 if (player.hasPermission("ximiningenergy.command.addmax")) {
-                    if (args.length > 1) {
+                    if (args.length > 2) {
+                        String targetPlayerName = args[1];
                         try {
-                            int amount = Integer.parseInt(args[1]);
-                            addMaxEnergy(player, amount);
-                            player.sendMessage("成功增加最大体力！");
+                            int amount = Integer.parseInt(args[2]);
+                            Player targetPlayer = Bukkit.getPlayer(targetPlayerName);
+
+                            if (targetPlayer != null && targetPlayer.isOnline()) {
+                                addMaxEnergy(targetPlayer, amount);
+                                player.sendMessage("成功增加玩家 " + targetPlayerName + " 的最大体力！");
+                            } else {
+                                player.sendMessage("玩家 " + targetPlayerName + " 不在线或不存在！");
+                            }
                         } catch (NumberFormatException e) {
                             player.sendMessage("无效的数量！");
                         }
                     } else {
-                        player.sendMessage("请指定增加的数量！");
+                        player.sendMessage("请指定玩家名称和增加的数量！");
                     }
                     return true;
                 } else {
@@ -120,23 +119,29 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
 
             case "addregen":
                 if (player.hasPermission("ximiningenergy.command.addregen")) {
-                    if (args.length > 1) {
+                    if (args.length > 2) {
+                        String targetPlayerName = args[1];
                         try {
-                            int amount = Integer.parseInt(args[1]);
-                            addRegenRate(player, amount);
-                            player.sendMessage("成功增加恢复速率！");
+                            int amount = Integer.parseInt(args[2]);
+                            Player targetPlayer = Bukkit.getPlayer(targetPlayerName);
+
+                            if (targetPlayer != null && targetPlayer.isOnline()) {
+                                addRegenRate(targetPlayer, amount);
+                                player.sendMessage("成功增加玩家 " + targetPlayerName + " 的恢复速率！");
+                            } else {
+                                player.sendMessage("玩家 " + targetPlayerName + " 不在线或不存在！");
+                            }
                         } catch (NumberFormatException e) {
                             player.sendMessage("无效的数量！");
                         }
                     } else {
-                        player.sendMessage("请指定增加的数量！");
+                        player.sendMessage("请指定玩家名称和增加的数量！");
                     }
                     return true;
                 } else {
                     player.sendMessage("你没有权限执行此命令！");
                     return true;
                 }
-
             case "setmax":
                 if (player.hasPermission("ximiningenergy.command.setmax")) {
                     if (args.length > 2) {
@@ -301,6 +306,53 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
                     player.sendMessage("你没有权限执行此命令！");
                     return true;
                 }
+            case "upgrade":
+                if (player.hasPermission("ximiningenergy.command.upgrade")) {
+                    if (args.length >= 2) {
+                        String updateMode = args[1];
+                        Player targetPlayer;
+
+                        if (args.length == 2 || !player.hasPermission("ximiningenergy.command.upgrade.others")) {
+                            // 如果只有两个参数，或者没有权限修改其他玩家，默认对执行命令的玩家进行操作
+                            targetPlayer = player;
+                        } else {
+                            // 如果有三个参数且有权限，目标玩家为指定的玩家
+                            String targetPlayerName = args[2];
+                            targetPlayer = plugin.getServer().getPlayer(targetPlayerName);
+                            if (targetPlayer == null || !targetPlayer.isOnline()) {
+                                player.sendMessage("玩家 " + targetPlayerName + " 不在线或不存在！");
+                                return true;
+                            }
+                        }
+
+                        switch (updateMode.toLowerCase()) {
+                            case "rate":
+                                upgradeRegenRate(targetPlayer);
+                                player.sendMessage("成功升级 " + targetPlayer.getName() + " 的恢复速率！");
+                                break;
+
+                            case "amount":
+                                upgradeMaxEnergy(targetPlayer);
+                                player.sendMessage("成功升级 " + targetPlayer.getName() + " 的最大体力！");
+                                break;
+
+                            case "gui":
+                                openUpgradeMenu(targetPlayer);
+                                break;
+
+                            default:
+                                player.sendMessage("无效的升级模式！请使用 'rate', 'amount' 或 'gui'。");
+                                break;
+                        }
+                    } else {
+                        player.sendMessage("请指定升级模式和（可选的）目标玩家！");
+                    }
+                    return true;
+                } else {
+                    player.sendMessage("你没有权限执行此命令！");
+                    return true;
+                }
+
 
             default:
                 player.sendMessage("无效的子命令！使用 /miningenergy help 查看帮助信息。");

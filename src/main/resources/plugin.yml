@@ -13,7 +13,7 @@ permissions:
   ximiningenergy.command.check:
     description: "允许使用 /miningenergy check"
     default: op
-  ximiningenergy.command.update:
+  ximiningenergy.command.upgrade:
     description: "允许使用 /miningenergy update"
     default: op
   ximiningenergy.command.addmax:

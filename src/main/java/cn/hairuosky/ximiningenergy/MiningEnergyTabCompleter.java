@@ -34,8 +34,8 @@ public class MiningEnergyTabCompleter implements TabCompleter {
             if (player.hasPermission("ximiningenergy.command.check")) {
                 completions.add("check");
             }
-            if (player.hasPermission("ximiningenergy.command.update")) {
-                completions.add("update");
+            if (player.hasPermission("ximiningenergy.command.upgrade")) {
+                completions.add("upgrade");
             }
             if (player.hasPermission("ximiningenergy.command.addmax")) {
                 completions.add("addmax");
@@ -72,6 +72,8 @@ public class MiningEnergyTabCompleter implements TabCompleter {
                     playerNames.add(onlinePlayer.getName());
                 }
                 return playerNames;
+            } else if(args[0].equalsIgnoreCase("upgrade")){
+                return  Arrays.asList("gui","amount","rate");
             }
         } else if (args.length == 3) {
             // 补全第三个参数
@@ -88,6 +90,15 @@ public class MiningEnergyTabCompleter implements TabCompleter {
                     }
                 }
                 return potionIds;
+            } else if (args[0].equalsIgnoreCase("upgrade")){
+                if (player.hasPermission("ximiningenergy.command.upgrade.others")){
+                    // 提供玩家名称的补全
+                    List<String> playerNames = new ArrayList<>();
+                    for (Player onlinePlayer : player.getServer().getOnlinePlayers()) {
+                        playerNames.add(onlinePlayer.getName());
+                    }
+                    return playerNames;
+                }
             }
         }
 
