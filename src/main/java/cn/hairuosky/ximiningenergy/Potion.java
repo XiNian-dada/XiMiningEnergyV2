@@ -61,7 +61,6 @@ public class Potion implements Listener {
     private final Plugin plugin;
     private final Map<String, PotionData> potions = new HashMap<>();
     private final Map<UUID, PlayerEnergyData> playerDataCache;
-
     public Potion(BossBarManager bossBarManager, Plugin plugin) {
         this.bossBarManager = bossBarManager;
         this.plugin = plugin;
@@ -85,7 +84,8 @@ public class Potion implements Listener {
                 potions.put(key, potionData);
             }
         } else {
-            plugin.getLogger().warning("Potion configuration section is missing.");
+
+            plugin.getLogger().warning(XiMiningEnergy.getRawMessageStatic("potion-config-not-found"));
         }
     }
 
@@ -113,7 +113,7 @@ public class Potion implements Listener {
         UUID playerUUID = player.getUniqueId();
         long currentTime = System.currentTimeMillis();
 
-        plugin.getLogger().info("onPlayerConsumePotion called: Player = " + player.getName() + ", Timestamp = " + currentTime);
+        XiMiningEnergy.debugModePrintStatic("info","onPlayerConsumePotion called: Player = " + player.getName() + ", Timestamp = " + currentTime);
 
         synchronized (lock) {
             // 检查玩家上次使用药水的时间，如果时间间隔小于1秒（1000毫秒），则跳过处理
@@ -160,7 +160,7 @@ public class Potion implements Listener {
                     // 按数量恢复体力
                     recoveryAmount = matchedPotionData.getAmount();
                 } else {
-                    plugin.getLogger().warning("Unknown potion type: " + type);
+                    XiMiningEnergy.debugModePrintStatic("warning","Unknown potion type: " + type);
                     return;
                 }
 
@@ -168,7 +168,7 @@ public class Potion implements Listener {
                 recoverPlayerStamina(playerData, recoveryAmount);
 
             } else {
-                plugin.getLogger().warning("Player data for " + playerUUID + " is null. Ensure player data is properly loaded.");
+                XiMiningEnergy.debugModePrintStatic("warning","Player data for " + playerUUID + " is null. Ensure player data is properly loaded.");
             }
         }
     }
@@ -188,7 +188,7 @@ public class Potion implements Listener {
         synchronized (lock_2) {
             // 检查上一次恢复的时间，如果时间间隔小于 RECOVERY_TIME_LIMIT，跳过处理
             if (currentTime - lastRecoveryTime < RECOVERY_TIME_LIMIT) {
-                plugin.getLogger().info("Duplicate recovery skipped at " + currentTime);
+                XiMiningEnergy.debugModePrintStatic("info","Duplicate recovery skipped at " + currentTime);
                 return;
             }
 
@@ -202,7 +202,7 @@ public class Potion implements Listener {
             lastRecoveryTime = currentTime;
 
             // 记录恢复数量和当前时间戳
-            plugin.getLogger().info("RecoverPlayerStamina called: Recovered " + recoveredAmount + " energy at " + currentTime);
+            XiMiningEnergy.debugModePrintStatic("info","RecoverPlayerStamina called: Recovered " + recoveredAmount + " energy at " + currentTime);
 
             // 获取玩家实例并发送提示消息
             Player player = Bukkit.getPlayer(playerData.getGameId());
@@ -211,7 +211,8 @@ public class Potion implements Listener {
             plugin.onPlayerEnergyUpdate(player, newEnergy, playerData.getMaxEnergy());
 
             if (player != null && player.isOnline()) {
-                player.sendMessage("你恢复了 " + recoveredAmount + " 点能量。");
+                player.sendMessage(XiMiningEnergy.getMessageStatic("use-potion-to-recover").replace("{amount}", String.valueOf(recoveredAmount)));
+                //player.sendMessage("你恢复了 " + recoveredAmount + " 点能量。");
             }
         }
     }

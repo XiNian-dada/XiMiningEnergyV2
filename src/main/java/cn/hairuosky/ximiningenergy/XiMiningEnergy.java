@@ -30,18 +30,20 @@ import java.util.UUID;
 
 public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     Economy economy;
-    private String prefix;
+
     public Potion potionHandler;
     private final Map<UUID, Long> cooldownMap = new HashMap<>();
     final long cooldownTime = 5000; // 冷却时间，单位：毫秒
+    double offlineRegenRatio;
     DatabaseManager databaseManager;
     HashMap<UUID, PlayerEnergyData> playerDataCache;
     private boolean applyToAllBlocks;
     BossBarManager bossBarManager;
     boolean itemsAdderEnabled;
     boolean debugModeSwitch = true;
-    private FileConfiguration langConfig;
     private File langFile;
+    private static FileConfiguration langConfigStatic;
+    private static String prefixStatic;
     Map<String, Double> itemsAdderEnergyConsumption;
     public static class EnergyRegenTask extends BukkitRunnable {
         private final XiMiningEnergy plugin; // 引用外围类的实例
@@ -83,54 +85,67 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
         @Override
         public void run(){
             plugin.saveAllPlayerDataToDatabase();
-            Bukkit.broadcastMessage("玩家数据已自动存储");
+            Bukkit.broadcastMessage(getMessageStatic("auto-save-to-database"));
+            //Bukkit.broadcastMessage("玩家数据已自动存储");
         }
     }
     @Override
     public void onEnable() {
-        getLogger().info("插件启动中...");
+        //getLogger().info("插件启动中...");
+        getLogger().info(getRawMessageStatic("on-enable"));
         try {
             // 加载配置文件
             saveDefaultConfig();
             // 初始化语言文件
             initializeLangFile();
+            instance = this;
             applyToAllBlocks = getConfig().getBoolean("apply-energy-consumption-to-all-blocks", false);
             if (applyToAllBlocks) {
-                getLogger().info("全方块减体力 已启用");
+                getLogger().info(getRawMessageStatic("apply-energy-consumption-to-all-blocks-enabled"));
+                //getLogger().info("全方块减体力 已启用");
             } else {
-                getLogger().info("全方块减体力 已关闭");
+                getLogger().info(getRawMessageStatic("apply-energy-consumption-to-all-blocks-disabled"));
+                //getLogger().info("全方块减体力 已关闭");
             }
             potionHandler = new Potion(bossBarManager, this);
-            getLogger().info("配置文件加载完成。");
+            getLogger().info(getRawMessageStatic("config-load-success"));
+            //getLogger().info("配置文件加载完成。");
             itemsAdderEnabled = getConfig().getBoolean("itemsadder.enabled", false);
 
             // 检查 PlaceholderAPI 插件是否存在
             if (getServer().getPluginManager().getPlugin("PlaceholderAPI") == null) {
-                getLogger().severe("PlaceholderAPI 插件未找到！插件将停用。");
+                getLogger().severe(getRawMessageStatic("placeholderapi-not-found"));
+                //getLogger().severe("PlaceholderAPI 插件未找到！插件将停用。");
                 getServer().getPluginManager().disablePlugin(this);
                 return;
             } else {
-                getLogger().info("PlaceholderAPI 插件已找到！");
+                getLogger().info(getRawMessageStatic("placeholderapi-found"));
+                //getLogger().info("PlaceholderAPI 插件已找到！");
                 new XiMiningEnergyPlaceholder(this).register();
-                getLogger().info("PlaceholderAPI 成功注册！");
+                getLogger().info(getRawMessageStatic("placeholderapi-register-success"));
+                //getLogger().info("PlaceholderAPI 成功注册！");
             }
 
             // 检查 Vault 插件是否存在
             if (!setupEconomy()) {
-                getLogger().severe("Vault 插件未找到！插件将停用。");
+                getLogger().severe(getRawMessageStatic("vault-not-found"));
+                //getLogger().severe("Vault 插件未找到！插件将停用。");
                 getServer().getPluginManager().disablePlugin(this);
                 return;
             } else {
-                getLogger().info("Vault 插件已找到！");
+                getLogger().info(getRawMessageStatic("vault-found"));
+                //getLogger().info("Vault 插件已找到！");
             }
 
             if (itemsAdderEnabled) {
                 if (getServer().getPluginManager().getPlugin("ItemsAdder") == null) {
-                    getLogger().severe("ItemsAdder 支持已启用，但未检测到 ItemsAdder 插件！插件将停用。");
+                    getLogger().severe(getRawMessageStatic("itemsadder-support-enable-without-itemsadder-plugin"));
+                    //getLogger().severe("ItemsAdder 支持已启用，但未检测到 ItemsAdder 插件！插件将停用。");
                     getServer().getPluginManager().disablePlugin(this); // 停用插件
                     return;
                 } else {
-                    getLogger().info("检测到 ItemsAdder 插件，正在加载自定义方块配置...");
+                    getLogger().info(getRawMessageStatic("load-custom-blocks-in-itemsadder"));
+                    //getLogger().info("检测到 ItemsAdder 插件，正在加载自定义方块配置...");
                     // 读取 ItemsAdder 自定义方块配置
                     itemsAdderEnergyConsumption = new HashMap<>();
                     ConfigurationSection itemsAdderSection = getConfig().getConfigurationSection("itemsadder.energy-consumption");
@@ -149,12 +164,13 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             // 初始化数据库管理器
             databaseManager = new DatabaseManager(this);
             databaseManager.initialize();
-            getLogger().info("数据库管理器初始化完成。");
+            getLogger().info(getRawMessageStatic("database-initialize-success"));
+            //getLogger().info("数据库管理器初始化完成。");
 
             // 初始化玩家数据缓存
             playerDataCache = new HashMap<>();
-
-            getLogger().info("玩家数据缓存初始化完成。");
+            getLogger().info(getRawMessageStatic("load-player-data-cache-success"));
+            //getLogger().info("玩家数据缓存初始化完成。");
 
             // 注册事件
             getServer().getPluginManager().registerEvents(this, this);
@@ -162,13 +178,14 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             getServer().getPluginManager().registerEvents(new Potion(bossBarManager, this), this);
             // 初始化 BossBar 管理器
             bossBarManager = new BossBarManager(getConfig(), this);
-            getLogger().info("事件监听器注册完成。");
+            getLogger().info(getRawMessageStatic("listener-register-success"));
+            //getLogger().info("事件监听器注册完成。");
             // 注册 EnergyAPI
             getServer().getServicesManager().register(XiEnergyAPI.class, this, this, ServicePriority.Normal);
             // 注册指令
             Objects.requireNonNull(getCommand("miningenergy")).setTabCompleter(new MiningEnergyTabCompleter(getConfig()));
             if (this.getCommand("miningenergy") == null) {
-                getLogger().severe("无法注册 'miningenergy' 指令，因为它没有在 plugin.yml 文件中定义。");
+                debugModePrint("severe","无法注册 'miningenergy' 指令，因为它没有在 plugin.yml 文件中定义。");
                 return; // 如果命令无法注册，退出插件启用过程
             }
             Objects.requireNonNull(this.getCommand("miningenergy")).setExecutor(new MiningEnergyCommandExecutor(this));
@@ -178,9 +195,13 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             if (getConfig().getBoolean("auto-save")){
                 new AutoSavePlayerData(this).runTaskTimer(this,0L,getConfig().getInt("auto-save-delay",600)*20L);
             }
-            getLogger().info("XiMiningEnergy 插件已启用！");
+            offlineRegenRatio = getConfig().getDouble("offline-regen-ratio",0.3);
+            getLogger().info(getRawMessageStatic("plugin-enable-success"));
+            //getLogger().info("XiMiningEnergy 插件已启用！");
         } catch (Exception e) {
-            getLogger().severe("插件启用过程中发生错误！");
+
+            getLogger().severe(getRawMessageStatic("enable-error"));
+            //getLogger().severe("插件启用过程中发生错误！");
             e.printStackTrace();
         }
 
@@ -198,7 +219,8 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
         if (databaseManager != null) {
             databaseManager.close();
         }
-        getLogger().info("XiMiningEnergy 插件已禁用！");
+        getLogger().info(getRawMessageStatic("plugin-disable-success"));
+        //getLogger().info("XiMiningEnergy 插件已禁用！");
     }
 
     @EventHandler
@@ -219,28 +241,37 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
                         System.currentTimeMillis(),     // lastOnlineTimestamp
                         player.getName()               // gameId
                 );
-
+                getLogger().info(getRawMessageStatic("playerdata-use-default").replace("{player}",player.getName()));
                 // 输出默认数据
-                getLogger().info("玩家 " + player.getName() + " 的数据在数据库中未找到，使用默认值:");
+                //getLogger().info("玩家 " + player.getName() + " 的数据在数据库中未找到，使用默认值:");
             } else {
+                long currentTimeMillis = System.currentTimeMillis();
+                long lastOnlineTimestamp = data.getLastOnlineTimestamp();
+                long offlineTimeInMinutes = (currentTimeMillis - lastOnlineTimestamp) / (1000*60);
+                double energyRecoverAmountDuringOffline = offlineTimeInMinutes * data.getRegenRate() * offlineRegenRatio;
+                double newCurrentEnergyAmount = Math.min(energyRecoverAmountDuringOffline,data.getMaxEnergy());
+                data.setCurrentEnergy(newCurrentEnergyAmount);
+                data.setLastOnlineTimestamp(currentTimeMillis);
                 // 输出从数据库加载的数据
-                getLogger().info("玩家 " + player.getName() + " 的数据从数据库加载:");
+                getLogger().info(getRawMessageStatic("playerdata-loaded-from-database").replace("{player}",player.getName()));
+                //getLogger().info("玩家 " + player.getName() + " 的数据从数据库加载:");
             }
 
             printPlayerDataFromDatabase(playerUUID, data);
 
             playerDataCache.put(playerUUID, data);
-            player.sendMessage("玩家数据已加载或创建。");
+            player.sendMessage(getRawMessageStatic("playerdata-created-or-loaded"));
+            //player.sendMessage("玩家数据已加载或创建。");
         }
     }
 
     private void printPlayerDataFromDatabase(UUID playerUUID, PlayerEnergyData data) {
-        getLogger().info("玩家UUID: " + playerUUID.toString());
-        getLogger().info("当前体力: " + data.getCurrentEnergy());
-        getLogger().info("最大体力: " + data.getMaxEnergy());
-        getLogger().info("恢复速率: " + data.getRegenRate());
-        getLogger().info("最后一次下线时间戳: " + data.getLastOnlineTimestamp());
-        getLogger().info("游戏ID: " + data.getGameId());
+        debugModePrint("info","玩家UUID: " + playerUUID.toString());
+        debugModePrint("info","当前体力: " + data.getCurrentEnergy());
+        debugModePrint("info","最大体力: " + data.getMaxEnergy());
+        debugModePrint("info","恢复速率: " + data.getRegenRate());
+        debugModePrint("info","最后一次下线时间戳: " + data.getLastOnlineTimestamp());
+        debugModePrint("info","游戏ID: " + data.getGameId());
     }
 
     @EventHandler
@@ -260,13 +291,13 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
                 CustomBlock customBlock = CustomBlock.byAlreadyPlaced(block);
                 if (customBlock != null) {
                     String customBlockID = customBlock.getNamespace() + ":" + customBlock.getId();
-                    getLogger().info("已检测到 ItemsAdder 自定义方块: " + customBlockID);
+                    debugModePrint("info","已检测到 ItemsAdder 自定义方块: " + customBlockID);
 
                     // 从配置中获取该自定义方块的能量消耗
                     energyConsumption = itemsAdderEnergyConsumption.getOrDefault(customBlockID, 1.0);
-                    getLogger().info("ItemsAdder 自定义方块能量消耗: " + energyConsumption);
+                    debugModePrint("info","ItemsAdder 自定义方块能量消耗: " + energyConsumption);
                 } else {
-                    getLogger().info("未检测到 ItemsAdder 自定义方块，方块类型为: " + block.getType());
+                    debugModePrint("info","未检测到 ItemsAdder 自定义方块，方块类型为: " + block.getType());
                 }
             }
 
@@ -285,22 +316,24 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             }
 
             // 输出调试信息
-            getLogger().info("玩家 " + player.getName() + " 正在挖掘方块: " + block.getType());
-            getLogger().info("方块能量消耗: " + energyConsumption);
-            getLogger().info("玩家当前体力: " + currentEnergy);
+            debugModePrint("info","玩家 " + player.getName() + " 正在挖掘方块: " + block.getType());
+            debugModePrint("info","方块能量消耗: " + energyConsumption);
+            debugModePrint("info","玩家当前体力: " + currentEnergy);
 
             if (currentEnergy >= energyConsumption) {
                 // 扣除体力
                 data.setCurrentEnergy(currentEnergy - energyConsumption);
-                getLogger().info("体力已扣除: " + energyConsumption);
-                getLogger().info("玩家剩余体力: " + data.getCurrentEnergy());
+                debugModePrint("info","体力已扣除: " + energyConsumption);
+                debugModePrint("info","玩家剩余体力: " + data.getCurrentEnergy());
                 // 更新 BossBar 显示
                 onPlayerEnergyUpdate(player, data.getCurrentEnergy(), data.getMaxEnergy());
             } else {
                 // 体力不足，取消挖掘事件
                 event.setCancelled(true);
-                player.sendMessage("你太累了，无法继续挖掘！");
-                getLogger().info("体力不足，取消挖掘事件。");
+                player.sendMessage(getMessageStatic("energy-not-enough"));
+                //player.sendMessage("你太累了，无法继续挖掘！");
+
+                debugModePrint("info","体力不足，取消挖掘事件。");
                 // 更新 BossBar 显示
                 onPlayerEnergyUpdate(player, data.getCurrentEnergy(), data.getMaxEnergy());
             }
@@ -324,15 +357,16 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             data.setLastOnlineTimestamp(System.currentTimeMillis());
 
             // 输出所有要保存的值
-            getLogger().info("玩家数据将被保存到数据库:");
-            getLogger().info("玩家名称: " + player.getName());
+            debugModePrint("info","玩家数据将被保存到数据库:");
+            debugModePrint("info","玩家名称: " + player.getName());
             printPlayerDataFromDatabase(playerUUID, data);
 
             // 保存玩家数据到数据库
             savePlayerDataToDatabase(playerUUID);
             // 从缓存中移除
             playerDataCache.remove(playerUUID);
-            getLogger().info("玩家数据已保存到数据库: " + player.getName());
+            getLogger().info(getRawMessageStatic("save-playerdata").replace("{player}",player.getName()));
+            //getLogger().info("玩家数据已保存到数据库: " + player.getName());
         }
     }
 
@@ -357,7 +391,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
 
             // 将更新后的数据保存到数据库
             databaseManager.updatePlayerData(uuid, data);
-            getLogger().info("玩家数据已保存到数据库: " + uuid);
+            debugModePrint("info","玩家数据已保存到数据库: " + uuid);
         }
     }
 
@@ -365,7 +399,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
         for (UUID uuid : playerDataCache.keySet()) {
             savePlayerDataToDatabase(uuid);
         }
-        getLogger().info("所有玩家数据已保存到数据库。");
+        debugModePrint("info","所有玩家数据已保存到数据库。");
     }
 
     public PlayerEnergyData getPlayerData(UUID uuid) {
@@ -378,7 +412,8 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
 
 
     void printEnergyConsumptionConfig() {
-        getLogger().info("原版方块能量消耗配置：");
+        getLogger().info(getRawMessageStatic("vanilla-block-consumption-config"));
+        //getLogger().info("原版方块能量消耗配置：");
         ConfigurationSection section = getConfig().getConfigurationSection("energy-consumption");
         if (section != null) {
             for (String key : section.getKeys(false)) {
@@ -388,15 +423,18 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
 
         if (itemsAdderEnabled) {
             if (!itemsAdderEnergyConsumption.isEmpty()) {
-                getLogger().info("ItemsAdder 自定义方块能量消耗配置：");
+                getLogger().info(getRawMessageStatic("itemsadder-block-consumption-config"));
+                //getLogger().info("ItemsAdder 自定义方块能量消耗配置：");
                 for (Map.Entry<String, Double> entry : itemsAdderEnergyConsumption.entrySet()) {
                     getLogger().info(entry.getKey() + ": " + entry.getValue());
                 }
             } else {
-                getLogger().info("未找到任何 ItemsAdder 自定义方块能量消耗配置。");
+                getLogger().info(getRawMessageStatic("itemsadder-config-not-found"));
+                //getLogger().info("未找到任何 ItemsAdder 自定义方块能量消耗配置。");
             }
         } else {
-            getLogger().info("ItemsAdder 支持未启用。");
+            getLogger().info(getRawMessageStatic("itemsadder-disabled"));
+            //getLogger().info("ItemsAdder 支持未启用。");
         }
     }
     private boolean setupEconomy() {
@@ -422,7 +460,7 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     }
     public HashMap<UUID, PlayerEnergyData> getPlayerDataCache() {
         if (playerDataCache == null) {
-            getLogger().severe("Player data cache is null! Initialization might have failed.Or there's no player join the game,if so,ignore this message");
+            debugModePrint("severe","Player data cache is null! Initialization might have failed.Or there's no player join the game,if so,ignore this message");
 
         }else {
             return playerDataCache;
@@ -589,7 +627,10 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             }
         }
     }
-
+    public static void debugModePrintStatic(String importance, String text) {
+        // 通过单例调用非静态方法
+        XiMiningEnergy.getInstance().debugModePrint(importance, text);
+    }
     void initializeLangFile() {
         // 确保插件目录下的 languages 文件夹存在
         File languagesDir = new File(getDataFolder(), "languages");
@@ -606,15 +647,12 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
             saveResource("languages/" + language + ".yml", false);
         }
 
-        // 加载语言文件配置
-        langConfig = YamlConfiguration.loadConfiguration(langFile);
 
-
-        // 加载前缀
-        prefix = ChatColor.translateAlternateColorCodes('&', getConfig().getString("prefix", ""));
+        langConfigStatic = YamlConfiguration.loadConfiguration(langFile);
+        prefixStatic = ChatColor.translateAlternateColorCodes('&', getConfig().getString("prefix", ""));
     }
 
-    public String getMessage(String key) {
+    /*public String getMessage(String key) {
         // 获取消息并添加前缀
         String message = langConfig.getString(key, key);
         return ChatColor.translateAlternateColorCodes('&', prefix + message);
@@ -624,6 +662,18 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
         // 获取消息（无前缀）
         String message = langConfig.getString(key, key);
         return ChatColor.translateAlternateColorCodes('&', message);
+    }*/
+    public static String getMessageStatic(String key) {
+        String message = langConfigStatic.getString(key, key);
+        return ChatColor.translateAlternateColorCodes('&', prefixStatic + message);
     }
 
+    public static String getRawMessageStatic(String key) {
+        String message = langConfigStatic.getString(key, key);
+        return ChatColor.translateAlternateColorCodes('&', message);
+    }
+    private static XiMiningEnergy instance;
+    public static XiMiningEnergy getInstance() {
+        return instance;
+    }
 }

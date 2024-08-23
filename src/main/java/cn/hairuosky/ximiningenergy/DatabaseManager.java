@@ -7,7 +7,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.sql.*;
+import java.util.Objects;
 import java.util.UUID;
+
+import static org.bukkit.Bukkit.getPlayer;
 
 public class DatabaseManager {
 
@@ -42,7 +45,8 @@ public class DatabaseManager {
         hikariConfig.setMaxLifetime(1800000);
 
         dataSource = new HikariDataSource(hikariConfig);
-        plugin.getLogger().info("成功连接到数据库！");
+        plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-connect"));
+        //plugin.getLogger().info("成功连接到数据库！");
 
         // 创建表
         try (Connection connection = dataSource.getConnection();
@@ -55,15 +59,17 @@ public class DatabaseManager {
                              "last_online_timestamp BIGINT, " +
                              "game_id VARCHAR(255) NOT NULL)")) {
             statement.executeUpdate();
-            plugin.getLogger().info("数据库表 `player_energy` 已创建或确认存在。");
+            plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-check"));
+            //plugin.getLogger().info("数据库表 `player_energy` 已创建或确认存在。");
         } catch (SQLException e) {
-            plugin.getLogger().severe("无法连接到数据库！");
+            plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-cannot-connect"));
+            //plugin.getLogger().severe("无法连接到数据库！");
             e.printStackTrace();
         }
     }
 
     public PlayerEnergyData loadPlayerData(UUID uuid) {
-        plugin.getLogger().info("加载玩家数据: " + uuid.toString());
+        XiMiningEnergy.debugModePrintStatic("info","加载玩家数据: " + uuid.toString());
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
                      "SELECT current_energy, max_energy, regen_rate, last_online_timestamp, game_id FROM player_energy WHERE uuid = ?")) {
@@ -75,7 +81,7 @@ public class DatabaseManager {
                 double regenRate = rs.getDouble("regen_rate");
                 long lastOnlineTimestamp = rs.getLong("last_online_timestamp");
                 String gameId = rs.getString("game_id");
-                plugin.getLogger().info("玩家数据加载成功: " + uuid.toString());
+                XiMiningEnergy.debugModePrintStatic("info","玩家数据加载成功: " + uuid.toString());
                 return new PlayerEnergyData(currentEnergy, maxEnergy, regenRate, lastOnlineTimestamp, gameId);
             } else {
                 Player player = plugin.getServer().getPlayer(uuid);
@@ -83,18 +89,19 @@ public class DatabaseManager {
                 FileConfiguration config = plugin.getConfig();
                 double defaultMaxEnergy = config.getDouble("default-max-energy");
                 double defaultRegenRate = config.getDouble("default-regen-rate");
-                plugin.getLogger().info("玩家数据不存在，使用默认值: " + uuid.toString());
+                XiMiningEnergy.debugModePrintStatic("info","玩家数据不存在，使用默认值: " + uuid.toString());
                 return new PlayerEnergyData(defaultMaxEnergy, defaultMaxEnergy, defaultRegenRate, 0, gameId);
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("加载玩家数据失败: " + uuid.toString());
+            plugin.getLogger().severe(XiMiningEnergy.getRawMessageStatic("playerdata-fail-load").replace("{player}",Objects.requireNonNull(getPlayer(uuid)).getName()));
+            //plugin.getLogger().severe("加载玩家数据失败: " + Objects.requireNonNull(getPlayer(uuid)).getName());
             e.printStackTrace();
         }
         return null;
     }
 
     public void updatePlayerData(UUID uuid, PlayerEnergyData data) {
-        plugin.getLogger().info("更新玩家数据: " + uuid.toString());
+        XiMiningEnergy.debugModePrintStatic("info","更新玩家数据: " + uuid.toString());
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
                      "REPLACE INTO player_energy (uuid, current_energy, max_energy, regen_rate, last_online_timestamp, game_id) VALUES (?, ?, ?, ?, ?, ?)")) {
@@ -105,9 +112,9 @@ public class DatabaseManager {
             statement.setLong(5, data.getLastOnlineTimestamp());
             statement.setString(6, data.getGameId());
             int rowsAffected = statement.executeUpdate();
-            plugin.getLogger().info("玩家数据更新成功: " + uuid.toString() + ", 受影响的行数: " + rowsAffected);
+            XiMiningEnergy.debugModePrintStatic("info","玩家数据更新成功: " + uuid.toString() + ", 受影响的行数: " + rowsAffected);
         } catch (SQLException e) {
-            plugin.getLogger().severe("更新玩家数据失败: " + uuid.toString());
+            XiMiningEnergy.debugModePrintStatic("severe","更新玩家数据失败: " + uuid.toString());
             e.printStackTrace();
         }
     }

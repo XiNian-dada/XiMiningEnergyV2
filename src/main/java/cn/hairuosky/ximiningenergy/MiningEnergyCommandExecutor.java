@@ -185,7 +185,12 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
 
                         // 重新初始化语言文件
                         plugin.initializeLangFile();
-
+                        boolean applyToAllBlocks = plugin.getConfig().getBoolean("apply-energy-consumption-to-all-blocks", false);
+                        if (applyToAllBlocks) {
+                            plugin.getLogger().info("全方块减体力 已启用");
+                        } else {
+                            plugin.getLogger().info("全方块减体力 已关闭");
+                        }
                         // 重新加载 ItemsAdder 配置（如果启用）
                         boolean itemsAdderEnabled = plugin.getConfig().getBoolean("itemsadder.enabled", false);
                         if (itemsAdderEnabled) {
@@ -226,7 +231,7 @@ public class MiningEnergyCommandExecutor implements CommandExecutor, Listener {
                         }
                         Potion potionHandler = plugin.getPotionHandler();
                         potionHandler.reloadPotions(plugin.getConfig());
-
+                        Objects.requireNonNull(plugin.getCommand("miningenergy")).setTabCompleter(new MiningEnergyTabCompleter(plugin.getConfig()));
                         //player.sendMessage(plugin.getMessage("config-reloaded")); // 使用带前缀的消息
                     } catch (Exception e) {
                         //player.sendMessage(plugin.getMessage("reload-failed")); // 使用带前缀的消息

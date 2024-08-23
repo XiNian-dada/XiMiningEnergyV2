@@ -13,6 +13,7 @@ default-max-energy: 100.0
 default-regen-rate: 1.0
 max-energy-limit: 5000  # 最大体力上限
 regen-rate-limit: 500   # 恢复速率上限
+offline-regen-ratio: 0.3 #离线恢复体力系数。恢复总体力 = 本身应当恢复的体力总数*0.3
 
 apply-energy-consumption-to-all-blocks: false
 energy-consumption:
