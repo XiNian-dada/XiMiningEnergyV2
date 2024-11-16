@@ -129,46 +129,48 @@ public class Potion implements Listener {
         // 继续处理药水消耗事件
         ItemStack item = event.getItem();
         ItemMeta meta = item.getItemMeta();
+
         if (meta == null) return;
+        if (meta.hasCustomModelData()){
+            int customModelData = meta.getCustomModelData();
+            PotionData matchedPotionData = null;
 
-        int customModelData = meta.getCustomModelData();
-        PotionData matchedPotionData = null;
-
-        // 寻找与当前药水匹配的 PotionData
-        for (PotionData potionData : potions.values()) {
-            if (potionData.getCustomModelData() == customModelData) {
-                matchedPotionData = potionData;
+            // 寻找与当前药水匹配的 PotionData
+            for (PotionData potionData : potions.values()) {
+                if (potionData.getCustomModelData() == customModelData) {
+                    matchedPotionData = potionData;
+                }
                 break;
             }
-        }
 
-        if (matchedPotionData != null) {
-            // 动态从插件的主类中获取 playerDataCache
-            XiMiningEnergy plugin = (XiMiningEnergy) this.plugin;
-            Map<UUID, PlayerEnergyData> playerDataCache = plugin.getPlayerDataCache();
+            if (matchedPotionData != null) {
+                // 动态从插件的主类中获取 playerDataCache
+                XiMiningEnergy plugin = (XiMiningEnergy) this.plugin;
+                Map<UUID, PlayerEnergyData> playerDataCache = plugin.getPlayerDataCache();
 
-            PlayerEnergyData playerData = playerDataCache.get(playerUUID);
+                PlayerEnergyData playerData = playerDataCache.get(playerUUID);
 
-            if (playerData != null) {
-                double recoveryAmount;
-                String type = matchedPotionData.getType();
+                if (playerData != null) {
+                    double recoveryAmount;
+                    String type = matchedPotionData.getType();
 
-                if (type.equalsIgnoreCase("percent")) {
-                    // 按百分比恢复体力
-                    recoveryAmount = calculateRecoveryByPercent(matchedPotionData.getAmount(), playerData);
-                } else if (type.equalsIgnoreCase("amount")) {
-                    // 按数量恢复体力
-                    recoveryAmount = matchedPotionData.getAmount();
+                    if (type.equalsIgnoreCase("percent")) {
+                        // 按百分比恢复体力
+                        recoveryAmount = calculateRecoveryByPercent(matchedPotionData.getAmount(), playerData);
+                    } else if (type.equalsIgnoreCase("amount")) {
+                        // 按数量恢复体力
+                        recoveryAmount = matchedPotionData.getAmount();
+                    } else {
+                        XiMiningEnergy.debugModePrintStatic("warning","Unknown potion type: " + type);
+                        return;
+                    }
+
+                    // 恢复玩家体力并更新 BossBar
+                    recoverPlayerStamina(playerData, recoveryAmount);
+
                 } else {
-                    XiMiningEnergy.debugModePrintStatic("warning","Unknown potion type: " + type);
-                    return;
+                    XiMiningEnergy.debugModePrintStatic("warning","Player data for " + playerUUID + " is null. Ensure player data is properly loaded.");
                 }
-
-                // 恢复玩家体力并更新 BossBar
-                recoverPlayerStamina(playerData, recoveryAmount);
-
-            } else {
-                XiMiningEnergy.debugModePrintStatic("warning","Player data for " + playerUUID + " is null. Ensure player data is properly loaded.");
             }
         }
     }

@@ -1,0 +1,43 @@
+auto-save-to-database: "玩家体力数据已自动保存！"
+
+#######################################
+#              PLUGIN                 #
+#######################################
+on-enable: "插件加载中......"
+apply-energy-consumption-to-all-blocks-enabled: "全方块扣除体力 已启用！"
+apply-energy-consumption-to-all-blocks-disabled: "全方块扣除体力 已关闭！"
+config-load-success: "配置文件成功载入。"
+placeholderapi-not-found: "PlaceholderAPI插件未发现，插件将停止启动，请安装PlaceholderAPI后重新启动服务器！"
+placeholderapi-found: "PlaceholderAPI插件已发现！正在注册占位符..."
+placeholderapi-register-success: "PlaceholderAPI注册成功！"
+vault-not-found: "Vault插件未发现，插件将停止启动，请安装Vault后重新启动服务器！"
+vault-found: "Vault插件已发现！"
+itemsadder-support-enable-without-itemsadder-plugin: "ItemsAdder 支持已启用，但未检测到 ItemsAdder 插件！插件将停用！请安装itemsadder后重新启动服务器或关闭itemsadder支持！"
+load-custom-blocks-in-itemsadder: "检测到 ItemsAdder 插件，正在加载自定义方块配置......"
+itemsadder-disabled: "Itemsadder 支持未启用。"
+itemsadder-config-not-found: "未找到任何 ItemsAdder 自定义方块能量消耗配置"
+listener-register-success: "事件监听器注册完成。"
+plugin-enable-success: "XiMiningEnergy 插件已启用！"
+plugin-disable-success: "XiMiningEnergy 插件已禁用！"
+enable-error: "插件启动过程中发生错误！"
+#######################################
+#             DATABASE                #
+#######################################
+database-connect: "成功连接至数据库"
+database-cannot-connect: "无法连接至数据库"
+database-check: "数据库表 `player_energy` 已创建或确认存在。"
+database-initialize-success: "数据库管理器初始化完成。"
+database-is-not-initialized: "数据库连接池未初始化。"
+database-close: "数据库链接正在关闭。"
+database-have-closed: "数据库链接已关闭。"
+load-player-data-cache-success: "玩家数据缓存初始化完成。"
+playerdata-use-default: "玩家 {player} 的数据在数据库中未找到，使用默认值。"
+playerdata-loaded-from-database: "玩家 {player} 的数据将从数据库加载。"
+playerdata-created-or-loaded: "您的体力数据已被加载或创建！"
+playerdata-fail-load: "玩家 {player} 的体力数据加载失败，请查看控制台"
+energy-not-enough: "&e你太累了，你需要休息一下！"
+save-playerdata: "玩家 {player} 数据已保存至数据库"
+vanilla-block-consumption-config: "原版方块能量消耗配置："
+itemsadder-block-consumption-config: "Itemsadder 自定义方块能量消耗配置："
+potion-config-not-found: "未发现药水配置！"
+use-potion-to-recover: "&7你的体力恢复了 &e{amount} &7点！"

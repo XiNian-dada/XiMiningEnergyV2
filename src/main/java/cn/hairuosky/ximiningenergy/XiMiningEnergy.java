@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+//TODO 严格的测试
 public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     Economy economy;
 
@@ -91,13 +92,15 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
     }
     @Override
     public void onEnable() {
+        initializeLangFile();
+        //langConfigStatic = YamlConfiguration.loadConfiguration(langFile);
         //getLogger().info("插件启动中...");
         getLogger().info(getRawMessageStatic("on-enable"));
         try {
             // 加载配置文件
             saveDefaultConfig();
             // 初始化语言文件
-            initializeLangFile();
+
             instance = this;
             applyToAllBlocks = getConfig().getBoolean("apply-energy-consumption-to-all-blocks", false);
             if (applyToAllBlocks) {
@@ -248,8 +251,10 @@ public class XiMiningEnergy extends JavaPlugin implements Listener,XiEnergyAPI{
                 long currentTimeMillis = System.currentTimeMillis();
                 long lastOnlineTimestamp = data.getLastOnlineTimestamp();
                 long offlineTimeInMinutes = (currentTimeMillis - lastOnlineTimestamp) / (1000*60);
-                double energyRecoverAmountDuringOffline = offlineTimeInMinutes * data.getRegenRate() * offlineRegenRatio;
+                double energyRecoverAmountDuringOffline = offlineTimeInMinutes * data.getRegenRate() * offlineRegenRatio + data.getCurrentEnergy();
                 double newCurrentEnergyAmount = Math.min(energyRecoverAmountDuringOffline,data.getMaxEnergy());
+                getLogger().info("datage" + data.getCurrentEnergy());
+                getLogger().info("rec" + newCurrentEnergyAmount);
                 data.setCurrentEnergy(newCurrentEnergyAmount);
                 data.setLastOnlineTimestamp(currentTimeMillis);
                 // 输出从数据库加载的数据

@@ -6,6 +6,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.io.File;
 import java.sql.*;
 import java.util.Objects;
 import java.util.UUID;
@@ -16,6 +17,8 @@ public class DatabaseManager {
 
     private static HikariDataSource dataSource;
     private final Plugin plugin;
+    private Connection sqliteConnection;
+    private boolean useMySQL = true; // 默认使用 MySQL
     private static final int TEST_COUNT = 5;
 
     public DatabaseManager(Plugin plugin) {
@@ -24,6 +27,21 @@ public class DatabaseManager {
     }
 
     synchronized void initialize() {
+        FileConfiguration config = plugin.getConfig();
+        int dbType = config.getInt("database.type", 1); // 从配置中获取数据库类型，1 为 MySQL，2 为 SQLite
+
+        if (dbType == 1) {
+            useMySQL = true;
+            initializeMySQL();
+        } else if (dbType == 2) {
+            useMySQL = false;
+            initializeSQLite();
+        } else {
+            plugin.getLogger().severe("无效的数据库类型配置，请在配置文件中设置 database.type 为 1 (MySQL) 或 2 (SQLite)！");
+        }
+    }
+
+    private void initializeMySQL() {
         if (dataSource != null && !dataSource.isClosed()) {
             return; // 连接池已经存在且未关闭，直接返回
         }
@@ -46,65 +64,134 @@ public class DatabaseManager {
 
         dataSource = new HikariDataSource(hikariConfig);
         plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-connect"));
-        //plugin.getLogger().info("成功连接到数据库！");
 
-        // 创建表
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "CREATE TABLE IF NOT EXISTS player_energy (" +
-                             "uuid VARCHAR(36) PRIMARY KEY, " +
-                             "current_energy DOUBLE, " +
-                             "max_energy DOUBLE, " +
-                             "regen_rate DOUBLE, " +
-                             "last_online_timestamp BIGINT, " +
-                             "game_id VARCHAR(255) NOT NULL)")) {
-            statement.executeUpdate();
-            plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-check"));
-            //plugin.getLogger().info("数据库表 `player_energy` 已创建或确认存在。");
+        createTableMySQL();
+    }
+
+    private void initializeSQLite() {
+        try {
+            File dataFolder = plugin.getDataFolder();
+            if (!dataFolder.exists()) {
+                dataFolder.mkdirs();
+            }
+
+            File dbFile = new File(dataFolder, "player_data.db");
+            if (!dbFile.exists()) {
+                dbFile.createNewFile(); // 确保数据库文件存在
+            }
+
+            sqliteConnection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+            plugin.getLogger().info("SQLite 数据库连接成功");
+
+            createTableSQLite();
         } catch (SQLException e) {
-            plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-cannot-connect"));
-            //plugin.getLogger().severe("无法连接到数据库！");
+            plugin.getLogger().severe("无法连接到 SQLite 数据库！");
+            e.printStackTrace();
+        } catch (java.io.IOException e) {
+            plugin.getLogger().severe("无法创建 SQLite 数据库文件！");
             e.printStackTrace();
         }
     }
 
-    public PlayerEnergyData loadPlayerData(UUID uuid) {
-        XiMiningEnergy.debugModePrintStatic("info","加载玩家数据: " + uuid.toString());
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "SELECT current_energy, max_energy, regen_rate, last_online_timestamp, game_id FROM player_energy WHERE uuid = ?")) {
-            statement.setString(1, uuid.toString());
-            ResultSet rs = statement.executeQuery();
-            if (rs.next()) {
-                double currentEnergy = rs.getDouble("current_energy");
-                double maxEnergy = rs.getDouble("max_energy");
-                double regenRate = rs.getDouble("regen_rate");
-                long lastOnlineTimestamp = rs.getLong("last_online_timestamp");
-                String gameId = rs.getString("game_id");
-                XiMiningEnergy.debugModePrintStatic("info","玩家数据加载成功: " + uuid.toString());
-                return new PlayerEnergyData(currentEnergy, maxEnergy, regenRate, lastOnlineTimestamp, gameId);
-            } else {
-                Player player = plugin.getServer().getPlayer(uuid);
-                String gameId = (player != null) ? player.getName() : "unknownGameId";
-                FileConfiguration config = plugin.getConfig();
-                double defaultMaxEnergy = config.getDouble("default-max-energy");
-                double defaultRegenRate = config.getDouble("default-regen-rate");
-                XiMiningEnergy.debugModePrintStatic("info","玩家数据不存在，使用默认值: " + uuid.toString());
-                return new PlayerEnergyData(defaultMaxEnergy, defaultMaxEnergy, defaultRegenRate, 0, gameId);
-            }
+    private void createTableMySQL() {
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS player_energy (" +
+                "uuid VARCHAR(36) PRIMARY KEY, " +
+                "current_energy DOUBLE, " +
+                "max_energy DOUBLE, " +
+                "regen_rate DOUBLE, " +
+                "last_online_timestamp BIGINT, " +
+                "game_id VARCHAR(255) NOT NULL)";
+        try (Connection connection = getMySQLConnection();
+             PreparedStatement statement = connection.prepareStatement(createTableSQL)) {
+            statement.executeUpdate();
+            plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-check"));
         } catch (SQLException e) {
-            plugin.getLogger().severe(XiMiningEnergy.getRawMessageStatic("playerdata-fail-load").replace("{player}",Objects.requireNonNull(getPlayer(uuid)).getName()));
-            //plugin.getLogger().severe("加载玩家数据失败: " + Objects.requireNonNull(getPlayer(uuid)).getName());
+            plugin.getLogger().severe("无法创建或检查 MySQL 数据库表！");
             e.printStackTrace();
         }
-        return null;
+    }
+
+    private void createTableSQLite() {
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS player_energy (" +
+                "uuid TEXT PRIMARY KEY, " +
+                "current_energy REAL, " +
+                "max_energy REAL, " +
+                "regen_rate REAL, " +
+                "last_online_timestamp INTEGER, " +
+                "game_id TEXT NOT NULL)";
+        try (Connection connection = getSQLiteConnection();
+             PreparedStatement statement = connection.prepareStatement(createTableSQL)) {
+            statement.executeUpdate();
+            plugin.getLogger().info(XiMiningEnergy.getRawMessageStatic("database-check"));
+        } catch (SQLException e) {
+            plugin.getLogger().severe("无法创建或检查 SQLite 数据库表！");
+            e.printStackTrace();
+        }
+    }
+
+    private Connection getMySQLConnection() throws SQLException {
+        if (dataSource != null) {
+            return dataSource.getConnection();
+        }
+        throw new SQLException("MySQL 数据库连接池未初始化！");
+    }
+
+    private Connection getSQLiteConnection() throws SQLException {
+        if (sqliteConnection != null && !sqliteConnection.isClosed()) {
+            return sqliteConnection;
+        }
+
+        // 连接未初始化或已关闭，尝试重新建立连接
+        try {
+            if (sqliteConnection != null) {
+                // 如果连接已经存在，先关闭它
+                sqliteConnection.close();
+            }
+
+            // 重新建立数据库连接
+            Class.forName("org.sqlite.JDBC");
+            File dbFile = new File(plugin.getDataFolder(), "player_data.db");
+            sqliteConnection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+        } catch (ClassNotFoundException | SQLException e) {
+            // 记录错误信息，并重新抛出异常
+            plugin.getLogger().severe("Failed to reconnect to SQLite database: " + e.getMessage());
+            throw new SQLException("Failed to reconnect to SQLite database", e);
+        }
+
+        return sqliteConnection;
+    }
+
+    private Connection getConnection() throws SQLException {
+        if (useMySQL) {
+            plugin.getLogger().info("使用 MySQL 连接");
+            return getMySQLConnection();
+        } else {
+            plugin.getLogger().info("使用 SQLite 连接");
+            return getSQLiteConnection();
+        }
+    }
+
+    private PlayerEnergyData createDefaultPlayerData(UUID uuid) {
+        Player player = plugin.getServer().getPlayer(uuid);
+        String gameId = (player != null) ? player.getName() : "unknownGameId";
+        FileConfiguration config = plugin.getConfig();
+        double defaultMaxEnergy = config.getDouble("default-max-energy");
+        double defaultRegenRate = config.getDouble("default-regen-rate");
+        XiMiningEnergy.debugModePrintStatic("info", "玩家数据不存在，使用默认值: " + uuid.toString());
+        return new PlayerEnergyData(defaultMaxEnergy, defaultMaxEnergy, defaultRegenRate, 0, gameId);
     }
 
     public void updatePlayerData(UUID uuid, PlayerEnergyData data) {
-        XiMiningEnergy.debugModePrintStatic("info","更新玩家数据: " + uuid.toString());
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "REPLACE INTO player_energy (uuid, current_energy, max_energy, regen_rate, last_online_timestamp, game_id) VALUES (?, ?, ?, ?, ?, ?)")) {
+        XiMiningEnergy.debugModePrintStatic("info", "更新玩家数据: " + uuid.toString());
+        String sql;
+        if (useMySQL) {
+            sql = "REPLACE INTO player_energy (uuid, current_energy, max_energy, regen_rate, last_online_timestamp, game_id) VALUES (?, ?, ?, ?, ?, ?)";
+        } else {
+            sql = "INSERT OR REPLACE INTO player_energy (uuid, current_energy, max_energy, regen_rate, last_online_timestamp, game_id) VALUES (?, ?, ?, ?, ?, ?)";
+        }
+
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, uuid.toString());
             statement.setDouble(2, data.getCurrentEnergy());
             statement.setDouble(3, data.getMaxEnergy());
@@ -112,24 +199,75 @@ public class DatabaseManager {
             statement.setLong(5, data.getLastOnlineTimestamp());
             statement.setString(6, data.getGameId());
             int rowsAffected = statement.executeUpdate();
-            XiMiningEnergy.debugModePrintStatic("info","玩家数据更新成功: " + uuid.toString() + ", 受影响的行数: " + rowsAffected);
+            XiMiningEnergy.debugModePrintStatic("info", "玩家数据更新成功: " + uuid.toString() + ", 受影响的行数: " + rowsAffected);
         } catch (SQLException e) {
-            XiMiningEnergy.debugModePrintStatic("severe","更新玩家数据失败: " + uuid.toString());
+            XiMiningEnergy.debugModePrintStatic("severe", "更新玩家数据失败: " + uuid.toString());
             e.printStackTrace();
         }
     }
 
-    public void close() {
-        plugin.getLogger().info("关闭数据库连接...");
-        if (dataSource != null && !dataSource.isClosed()) {
-            dataSource.close();
-            plugin.getLogger().info("数据库连接池已关闭。");
+    public PlayerEnergyData loadPlayerData(UUID uuid) {
+        XiMiningEnergy.debugModePrintStatic("info", "加载玩家数据: " + uuid.toString());
+        String sql = "SELECT * FROM player_energy WHERE uuid = ?";
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, uuid.toString());
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                double currentEnergy = resultSet.getDouble("current_energy");
+                double maxEnergy = resultSet.getDouble("max_energy");
+                double regenRate = resultSet.getDouble("regen_rate");
+                long lastOnlineTimestamp = resultSet.getLong("last_online_timestamp");
+                String gameId = resultSet.getString("game_id");
+                return new PlayerEnergyData(currentEnergy, maxEnergy, regenRate, lastOnlineTimestamp, gameId);
+            } else {
+                // 数据库中没有记录，创建默认数据
+                return createDefaultPlayerData(uuid);
+            }
+        } catch (SQLException e) {
+            XiMiningEnergy.debugModePrintStatic("severe", "加载玩家数据失败: " + uuid.toString());
+            e.printStackTrace();
+            // 返回默认数据以避免空指针异常
+            return createDefaultPlayerData(uuid);
         }
     }
 
+
+    public boolean checkDatabaseConnection() {
+        XiMiningEnergy.debugModePrintStatic("info", "检查数据库连接");
+        try (Connection connection = getConnection()) {
+            if (connection != null && !connection.isClosed()) {
+                plugin.getLogger().info("数据库连接正常");
+                return true;
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("数据库连接检查失败！");
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public void close() {
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
+        }
+        if (sqliteConnection != null) {
+            try {
+                sqliteConnection.close();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("关闭 SQLite 数据库连接时发生错误！");
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+
+
     public long getConnectionDelay() {
         if (dataSource == null) {
-            plugin.getLogger().severe("数据库连接池未初始化！");
+            XiMiningEnergy.debugModePrintStatic("severe",XiMiningEnergy.getRawMessageStatic("database-not-initialized"));
+            ///plugin.getLogger().severe("数据库连接池未初始化！");
             return -1;
         }
 
@@ -160,7 +298,7 @@ public class DatabaseManager {
 
         if (count > 0) {
             long averageDelay = totalDelay / count;
-            plugin.getLogger().info("数据库连接延迟: " + (averageDelay / 1_000_000) + " ms"); // 转换为毫秒
+            XiMiningEnergy.debugModePrintStatic("info","数据库连接延迟: " + (averageDelay / 1_000_000) + " ms"); // 转换为毫秒
             return averageDelay / 1_000_000; // 转换为毫秒
         }
 
