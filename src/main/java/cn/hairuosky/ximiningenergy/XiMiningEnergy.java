@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-//TODO 推送测试
+//TODO 测试
 //TODO 严格的测试
 //TODO 在无vault的时候是不是需要考虑经验升级呢？
 //TODO 颜色符号失效
