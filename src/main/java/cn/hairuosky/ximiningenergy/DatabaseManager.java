@@ -8,10 +8,8 @@ import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.sql.*;
-import java.util.Objects;
 import java.util.UUID;
 
-import static org.bukkit.Bukkit.getPlayer;
 
 public class DatabaseManager {
 
